@@ -5,22 +5,24 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// Middleware with increased payload limit for screenshots
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.static(path.join(__dirname, 'public'))); // Frontend serve karega
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Secure API Route
+// Secure AI Route supporting both text and images
 app.post('/api/analyze', async (req, res) => {
     try {
         const API_KEY = process.env.GEMINI_API_KEY;
         if (!API_KEY) {
-            return res.status(500).json({ error: "API key is missing on the server." });
+            return res.status(500).json({ error: "API key is missing on the server environment variables." });
         }
 
-        const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${API_KEY}`;
+        const GEMINI_MODEL = "gemini-3.6-flash";
+        const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${API_KEY}`;
 
-        // Forward request to Google Gemini
+        // Forward request body directly to Gemini
         const response = await fetch(GEMINI_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -28,7 +30,9 @@ app.post('/api/analyze', async (req, res) => {
         });
 
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error?.message || "Gemini API Error");
+        if (!response.ok) {
+            throw new Error(data.error?.message || "Gemini API Error");
+        }
         
         res.json(data);
     } catch (error) {
@@ -37,7 +41,6 @@ app.post('/api/analyze', async (req, res) => {
     }
 });
 
-// Redirect all other routes to index.html
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
